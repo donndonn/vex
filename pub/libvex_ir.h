@@ -601,12 +601,12 @@ typedef
             10b  to +infinity
             11b  to zero
          This just happens to be the Intel encoding.  For reference only,
-         the PPC encoding is:
+         the PPC and sparc64 encoding is:
             00b  to nearest (the default)
             01b  to zero
             10b  to +infinity
             11b  to -infinity
-         Any PPC -> IR front end will have to translate these PPC
+         Any PPC -> IR or sparc64 -> IR front end will have to translate these
          encodings, as encoded in the guest state, to the standard
          encodings, to pass to the primops.
          For reference only, the ARM VFP encoding is:
@@ -736,7 +736,7 @@ typedef
 
       /* --- guest s390 specifics, not mandated by 754. --- */
 
-      /* Fused multiply-add/sub */
+      /* Fused multiply-add/sub, also used for sparc64. */
       /* :: IRRoundingMode(I32) x F32 x F32 x F32 -> F32
             (computes arg2 * arg3 +/- arg4) */ 
       Iop_MAddF32, Iop_MSubF32,
@@ -746,7 +746,7 @@ typedef
       /* Ternary operations, with rounding. */
       /* Fused multiply-add/sub, with 112-bit intermediate
          precision for ppc.
-         Also used to implement fused multiply-add/sub for s390. */
+         Also used to implement fused multiply-add/sub for s390 and sparc64. */
       /* :: IRRoundingMode(I32) x F64 x F64 x F64 -> F64 
             (computes arg2 * arg3 +/- arg4) */ 
       Iop_MAddF64, Iop_MSubF64,
@@ -775,6 +775,29 @@ typedef
 
       Iop_RecpExpF64,  /* FRECPX d  :: IRRoundingMode(I32) x F64 -> F64 */
       Iop_RecpExpF32,  /* FRECPX s  :: IRRoundingMode(I32) x F32 -> F32 */
+
+      /* --- guest sparc64 specifics, not mandated by IEEE 754. --- */
+
+      Iop_AlignF64,   /* FALIGNDATA  :: I64 x F64 x F64 -> F64 */
+      Iop_AndF64,     /* FANDd       :: F64 x F64 -> F64 */
+      Iop_AndF32,     /* FANDs       :: F32 x F32 -> F32 */
+      Iop_MullF32,    /* FsMULd      :: F32 x F32 -> F64 */
+      Iop_MullF64,    /* FdMULq      :: F64 x F64 -> F128 */
+      Iop_NotF64,     /* FNOTd       :: F64 -> F64 */
+      Iop_NotF32,     /* FNOTs       :: F32 -> F32 */
+      Iop_OrF64,      /* FORd        :: F64 x F64 -> F64 */
+      Iop_OrF32,      /* FORs        :: F32 x F32 -> F32 */
+      Iop_XorF64,     /* FXORd       :: F64 x F64 -> F64 */
+      Iop_XorF32,     /* FXORs       :: F32 x F32 -> F32 */
+      Iop_ShuffleF64, /* BSHUFFLE    :: I32 x F64 x F64 -> F64 */
+      Iop_ShlF16x4,   /* FSLL16      :: F64 x F64 -> F64 */
+      Iop_ShrF16x4,   /* FSRL16      :: F64 x F64 -> F64 */
+      Iop_ShlF32x2,   /* FSLL32      :: F64 x F64 -> F64 */
+      Iop_ShrF32x2,   /* FSRL32      :: F64 x F64 -> F64 */
+      Iop_QSalF16x4,  /* FSLAS16     :: F64 x F64 -> F64 */
+      Iop_SarF16x4,   /* FSRA16      :: F64 x F64 -> F64 */
+      Iop_QSalF32x2,  /* FSLAS32     :: F64 x F64 -> F64 */
+      Iop_SarF32x2,   /* FSRA32      :: F64 x F64 -> F64 */
 
       /* --------- Possibly required by IEEE 754-2008. --------- */
 
@@ -2090,6 +2113,7 @@ struct _IRExpr {
          IREndness end;    /* Endian-ness of the load */
          IRType    ty;     /* Type of the loaded value */
          IRExpr*   addr;   /* Address being loaded from */
+         IRExpr*   asi;    /* SPARCv9 address space indetifier */
       } Load;
 
       /* A constant-valued expression.
@@ -2220,6 +2244,7 @@ extern IRExpr* IRExpr_Triop  ( IROp op, IRExpr* arg1,
 extern IRExpr* IRExpr_Binop  ( IROp op, IRExpr* arg1, IRExpr* arg2 );
 extern IRExpr* IRExpr_Unop   ( IROp op, IRExpr* arg );
 extern IRExpr* IRExpr_Load   ( IREndness end, IRType ty, IRExpr* addr );
+extern IRExpr* IRExpr_LoadA  ( IREndness end, IRType ty, IRExpr* addr, IRExpr *asi);
 extern IRExpr* IRExpr_Const  ( IRConst* con );
 extern IRExpr* IRExpr_CCall  ( IRCallee* cee, IRType retty, IRExpr** args );
 extern IRExpr* IRExpr_ITE    ( IRExpr* cond, IRExpr* iftrue, IRExpr* iffalse );
@@ -2344,8 +2369,11 @@ typedef
       Ijk_Sys_int130,     /* amd64/x86 'int $0x82' */
       Ijk_Sys_int145,     /* amd64/x86 'int $0x91' */
       Ijk_Sys_int210,     /* amd64/x86 'int $0xD2' */
-      Ijk_Sys_sysenter    /* x86 'sysenter'.  guest_EIP becomes 
+      Ijk_Sys_sysenter,   /* x86 'sysenter'.  guest_EIP becomes
                              invalid at the point this happens. */
+      Ijk_Sys_syscall110, /* sparc64/Linux 'ta 0x6e' - getcontext() */
+      Ijk_Sys_syscall111, /* sparc64/Linux 'ta 0x6f' - setcontext() */
+      Ijk_Sys_fasttrap    /* sparc64 on Solaris: ta with #imm != 0x40 */
    }
    IRJumpKind;
 
@@ -2715,7 +2743,8 @@ typedef
       Ist_LLSC,
       Ist_Dirty,
       Ist_MBE,
-      Ist_Exit
+      Ist_Exit,
+      Ist_Unrecognized
    } 
    IRStmtTag;
 
@@ -2830,6 +2859,7 @@ typedef
             IREndness end;    /* Endianness of the store */
             IRExpr*   addr;   /* store address */
             IRExpr*   data;   /* value to write */
+            IRExpr*   asi;    /* SPARCv9 address space identifier */
          } Store;
 
          /* Guarded store.  Note that this is defined to evaluate all
@@ -2957,6 +2987,12 @@ typedef
             IRJumpKind jk;       /* Jump kind */
             Int        offsIP;   /* Guest state offset for IP */
          } Exit;
+
+         /* To handle unrecognized instructions
+          */
+         struct {
+           UInt        instr_bits;
+         } Unrecognized;
       } Ist;
    }
    IRStmt;
@@ -2969,6 +3005,7 @@ extern IRStmt* IRStmt_Put     ( Int off, IRExpr* data );
 extern IRStmt* IRStmt_PutI    ( IRPutI* details );
 extern IRStmt* IRStmt_WrTmp   ( IRTemp tmp, IRExpr* data );
 extern IRStmt* IRStmt_Store   ( IREndness end, IRExpr* addr, IRExpr* data );
+extern IRStmt* IRStmt_StoreA  ( IREndness end, IRExpr* addr, IRExpr* data, IRExpr* asi);
 extern IRStmt* IRStmt_StoreG  ( IREndness end, IRExpr* addr, IRExpr* data,
                                 IRExpr* guard );
 extern IRStmt* IRStmt_LoadG   ( IREndness end, IRLoadGOp cvt, IRTemp dst,
@@ -2980,6 +3017,7 @@ extern IRStmt* IRStmt_Dirty   ( IRDirty* details );
 extern IRStmt* IRStmt_MBE     ( IRMBusEvent event );
 extern IRStmt* IRStmt_Exit    ( IRExpr* guard, IRJumpKind jk, IRConst* dst,
                                 Int offsIP );
+extern IRStmt* IRStmt_Unrecognized ( UInt instr_bits );
 
 /* Deep-copy an IRStmt. */
 extern IRStmt* deepCopyIRStmt ( const IRStmt* );
@@ -3037,6 +3075,7 @@ typedef
       Int        stmts_used;
       IRExpr*    next;
       IRJumpKind jumpkind;
+      Bool       has_unrecognized; /* contains unrecognized instruction(s) */
       Int        offsIP;
    }
    IRSB;

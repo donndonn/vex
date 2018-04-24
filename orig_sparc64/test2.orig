@@ -1,0 +1,135 @@
+A basic block is represented by three consecutive lines.
+Every basic block contains a branch instruction.
+If the branch instruction takes a delay slot, then 'nop' is there.
+
+cwbne   %i0, %i1, +0x80
+. 1 0x12345678 4
+. 32 c6 04 19
+
+cwbe   %o1, -0xc, +0x78
+. 2 0x12345678 4
+. 12 c2 63 d4
+
+cwbe   %g0, %g0, +0x70
+. 3 0x12345678 4
+. 12 c0 03 80
+
+cwbe   %g0, 0x0, +0x68
+. 4 0x12345678 4
+. 12 c0 23 40
+
+cwbg   %l7, %g3, +0x60
+. 5 0x12345678 4
+. 34 c5 c3 03
+
+cwble  %g2, %g4, +0x58
+. 6 0x12345678 4
+. 14 c0 82 c4
+
+cwbge  %i3, 0x3, +0x50
+. 7 0x12345678 4
+. 36 c6 e2 83
+
+cwbl   %g0, 0x0, +0x48
+. 8 0x12345678 4
+. 16 c0 22 40
+
+cwbgu  %i3, %sp, +0x40
+. 9 0x12345678 4
+. 38 c6 c2 0e
+
+cwbleu %l6, %g0, +0x38
+. 10 0x12345678 4
+. 18 c5 81 c0
+
+cwbcc %i4, %g4, +0x30
+. 11 0x12345678 4
+. 3a c7 01 84
+
+cwbcs %i4, %g0, +0x28
+. 12 0x12345678 4
+. 1a c7 01 40
+
+cwbpos %g0, 0x0, +0x20
+. 13 0x12345678 4
+. 3c c0 21 00
+
+cwbneg %g5, -0x4, +0x18
+. 14 0x12345678 4
+. 1c c1 60 dc
+
+cwbvc  %l5, %g5, +0x10
+. 15 0x12345678 4
+. 3e c5 40 85
+
+cwbvs  %o3, %o7, +0x8
+. 16 0x12345678 4
+. 1e c2 c0 4f
+
+cxbne   %i0, %i1, +0x80
+. 17 0x12345678 4
+. 32 e6 04 19
+
+cxbe   %o1, -0xc, +0x78
+. 18 0x12345678 4
+. 12 e2 63 d4
+
+cxbe   %g0, %g0, +0x70
+. 19 0x12345678 4
+. 12 e0 03 80
+
+cxbe   %g0, 0x0, +0x68
+. 20 0x12345678 4
+. 12 e0 23 40
+
+cxbg   %l7, %g3, +0x60
+. 21 0x12345678 4
+. 34 e5 c3 03
+
+cxble  %g2, %g4, +0x58
+. 22 0x12345678 4
+. 14 e0 82 c4
+
+cxbge  %i3, 0x3, +0x50
+. 23 0x12345678 4
+. 36 e6 e2 83
+
+cxbl   %g0, 0x0, +0x48
+. 24 0x12345678 4
+. 16 e0 22 40
+
+cxbgu  %i3, %sp, +0x40
+. 25 0x12345678 4
+. 38 e6 c2 0e
+
+cxbleu %l6, %g0, +0x38
+. 26 0x12345678 4
+. 18 e5 81 c0
+
+cxbcc %i4, %g4, +0x30
+. 27 0x12345678 4
+. 3a e7 01 84
+
+cxbcs %i4, %g0, +0x28
+. 28 0x12345678 4
+. 1a e7 01 40
+
+cxbpos %g0, 0x0, +0x20
+. 29 0x12345678 4
+. 3c e0 21 00
+
+cxbneg %g5, -0x4, +0x18
+. 30 0x12345678 4
+. 1c e1 60 dc
+
+cxbvc  %l5, %g5, +0x10
+. 31 0x12345678 4
+. 3e e5 40 85
+
+cxbvs  %o3, %o7, +0x8
+. 32 0x12345678 4
+. 1e e2 c0 4f
+
+call +0x8 <0x108>
+. 33 0x12345678 8
+. 40 00 00 02 01 00 00 00

@@ -62,6 +62,7 @@ typedef
       VexArchMIPS32,
       VexArchMIPS64,
       VexArchTILEGX
+      VexArchSPARC64
    }
    VexArch;
 
@@ -258,6 +259,22 @@ typedef
                                ((VEX_MIPS_COMP_ID(x) == VEX_PRID_COMP_MIPS) && \
                                (VEX_MIPS_PROC_ID(x) == VEX_PRID_IMP_34K)))
 
+/* sparc64: baseline capability is SPARCv9, with VIS 1.
+   VIS stands for VIS(TM) Instruction Set.
+   OSA stands for Oracle Sparc Architecture.
+   Fujitsu-specific instruction sets are not implemented.
+   Each #define corresponds to an Architectural Feature Set as described
+   in Oracle SPARC Architecture 2017, page 126. */
+#define VEX_HWCAPS_SPARC64_BASE    0x0000  /* SPARCv9 with VIS 1 extensions */
+#define VEX_HWCAPS_SPARC64_VIS2    0x0001  /* VIS 2 extensions (UltraSparc III) */
+#define VEX_HWCAPS_SPARC64_FMAF    0x0003  /* FMAf (SPARC T3, SPARC64 VI) */
+#define VEX_HWCAPS_SPARC64_VIS3    0x0007  /* VIS3 (SPARC T3) */
+#define VEX_HWCAPS_SPARC64_IMA     0x000f  /* IMA (SPARC64 VII, T4 OSA2011) */
+#define VEX_HWCAPS_SPARC64_SPARC4  0x001f  /* SPARC4 (T4 OSA2011) */
+#define VEX_HWCAPS_SPARC64_SPARC5  0x003f  /* SPARC5/VIS4/ADI (M7 OSA2015) */
+#define VEX_HWCAPS_SPARC64_SPARC6  0x007f  /* SPARC6 (M8 OSA2017) */
+
+
 /* These return statically allocated strings. */
 
 extern const HChar* LibVEX_ppVexArch    ( VexArch );
@@ -410,6 +427,15 @@ typedef
       Bool host_ppc_calls_use_fndescrs;
 
       Bool guest_mips_fp_mode64;
+
+      /* SPARC64 GUESTS only: do not try to handle unrecognized instructions.
+         Because sparc instructions have fixed length (4 bytes), it is possible
+         for the instruction decoder to handle even certain unrecognized
+         (unsupported) instructions by running them natively. Excluded are
+         control flow instructions and instructions in a branch delay slot.
+         True => handling of unrecognized instructions is off,
+         False => handling of unrecognized instructions is on (default). */
+      Bool guest_sparc64_dont_handle_unrecognized_insn;
    }
    VexAbiInfo;
 
@@ -757,10 +783,10 @@ typedef
 
          At the end of each translation, the next guest address is
          placed in the host's standard return register (x86: %eax,
-         amd64: %rax, ppc32: %r3, ppc64: %r3).  Optionally, the guest
-         state pointer register (on host x86: %ebp; amd64: %rbp;
-         ppc32/64: r31) may be set to a VEX_TRC_ value to indicate any
-         special action required before the next block is run.
+         amd64: %rax, ppc32: %r3, ppc64: %r3, sparc64: %o7).  Optionally,
+         the guest state pointer register (on host x86: %ebp; amd64: %rbp;
+         ppc32/64: r31, sparc64: %g5) may be set to a VEX_TRC_ value to
+         indicate any special action required before the next block is run.
 
          Control is then passed back to the dispatcher (beyond Vex's
          control; caller supplies this) in the following way:
@@ -774,7 +800,7 @@ typedef
            unchanged and we wish to continue directly with the next
            translation.  Both of these must be non-NULL.
 
-         - On host archs which have a link register (ppc32, ppc64), by
+         - On host archs which have a link register (ppc32, ppc64, sparc64), by
            a branch to the link register (which is guaranteed to be
            unchanged from whatever it was at entry to the
            translation).  'dispatch_assisted' and
