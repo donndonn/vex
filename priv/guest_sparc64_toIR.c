@@ -2291,7 +2291,7 @@ insn_trap(sparc64_mnemonic mnemonic, const sparc64_insn *insn, DisResult *dres)
     dres->whatNext = Dis_StopHere;
 
     UInt trap_imm = insn->operand_values[2].ulongval;
-#   if defined(VGO_linux)
+#   if (1==1)
     switch (trap_imm) {
     case 0x6d:
         /* Normal sparc64 "syscall" on Linux. */

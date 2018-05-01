@@ -240,6 +240,13 @@ IRSB* bb_to_IR (
       vassert((offB_GUEST_IP % 8) == 0);
    }
 
+   /* Although we will try to disassemble up to vex_control.guest_max_insns
+      insns into the block, the individual insn assemblers may hint to us that a
+      disassembled instruction is verbose.  In that case we will lower the limit
+      so as to ensure that the JIT doesn't run out of space.  See bug 375839 for
+      the motivating example. */
+   Int guest_max_insns_really = vex_control.guest_max_insns;
+
    /* Start a new, empty extent. */
    vge->n_used  = 1;
    vge->base[0] = guest_IP_bbstart;
@@ -375,7 +382,24 @@ IRSB* bb_to_IR (
       vassert(dres.whatNext == Dis_StopHere
               || dres.whatNext == Dis_Continue
               || dres.whatNext == Dis_ResteerU
-              || dres.whatNext == Dis_ResteerC);
+              || dres.whatNext == Dis_ResteerC
+              || dres.whatNext == Dis_BackUp);
+
+      if (dres.whatNext == Dis_BackUp) {
+         if (vex_traceflags & VEX_TRACE_FE) {
+            vex_printf(
+              "Unrecognized instruction at 0x%lx, stop block and back up\n",
+              guest_IP_curr_instr);
+         }
+         /* Found unrecognized instruction. Delete IMark. */
+         irsb->stmts_used--;
+         irsb->next = IRExpr_Get(offB_GUEST_IP, guest_word_type);
+         irsb->jumpkind = Ijk_Boring;
+         irsb->offsIP = offB_GUEST_IP;
+         dres.whatNext = Dis_StopHere;
+         goto done;
+      }
+
       /* ... disassembled insn length is sane ... */
       vassert(dres.len >= 0 && dres.len <= 24);
       /* ... continueAt is zero if no resteer requested ... */
@@ -385,6 +409,23 @@ IRSB* bb_to_IR (
              didn't actually happen anyway ... */
       if (n_cond_resteers_allowed == 0)
          vassert(dres.whatNext != Dis_ResteerC);
+
+      /* If the disassembly function passed us a hint, take note of it. */
+      if (LIKELY(dres.hint == Dis_HintNone)) {
+         /* Do nothing */
+      } else {
+         vassert(dres.hint == Dis_HintVerbose);
+         /* The current insn is known to be verbose.  Lower the max insns limit
+            if necessary so as to avoid running the JIT out of space in the
+            event that we've encountered the start of a long sequence of them.
+            This is expected to be a very rare event.  In any case the remaining
+            limit (30 insns) is still so high that most blocks will terminate
+            anyway before then.  So this is very unlikely to give a perf hit in
+            practice.  See bug 375839 for the motivating example. */
+         if (guest_max_insns_really > 30) {
+            guest_max_insns_really = 30;
+         }
+      }
 
       /* Fill in the insn-mark length field. */
       vassert(first_stmt_idx >= 0 && first_stmt_idx < irsb->stmts_used);
@@ -444,6 +485,16 @@ IRSB* bb_to_IR (
         /* Really we should also check that the type of the Put'd data
            == guest_word_type, but that's a bit expensive. */
       }
+
+      /* Update the VexGuestExtents we are constructing. */
+      /* If vex_control.guest_max_insns is required to be < 100 and
+         each insn is at max 20 bytes long, this limit of 5000 then
+         seems reasonable since the max possible extent length will be
+         100 * 20 == 2000. */
+      vassert(vge->len[vge->n_used-1] < 5000);
+      vge->len[vge->n_used-1]
+         = toUShort(toUInt( vge->len[vge->n_used-1] + dres.len ));
+      n_instrs++;
 
       /* Advance delta (inconspicuous but very important :-) */
       delta += (Long)dres.len;

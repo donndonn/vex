@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2004-2015 OpenWorks LLP
+   Copyright (C) 2004-2017 OpenWorks LLP
       info@open-works.net
 
    This program is free software; you can redistribute it and/or
@@ -119,6 +119,15 @@ typedef
       /* The function code specified in GPR 0 executed by PFPO
          instruction is invalid */
       EmFail_S390X_invalid_PFPO_function,
+
+      /* Unmasking floating-point exceptions is not supported. */
+      EmWarn_SPARC64_fp_exns,
+
+      /* Setting non-standard floating-point mode of %fsr is not supported. */
+      EmWarn_SPARC64_fp_ns,
+
+      /* Going to handle unrecognized instruction by executing it natively. */
+      EmWarn_SPARC64_handling_unrecognized_insn,
 
       EmNote_NUMBER
    }

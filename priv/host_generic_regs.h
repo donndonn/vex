@@ -102,6 +102,7 @@ typedef  struct { UInt u32; }  HReg;
       HRcFlt32     64 bits
       HRcFlt64     128 bits (on x86 these are spilled by fstpt/fldt and
                              so won't fit in a 64-bit slot)
+      HRFlt128     128 bits
       HRcVec64     64 bits
       HRcVec128    128 bits
 
@@ -117,8 +118,9 @@ typedef
       HRcInt64=4,     /* 64-bit int */
       HRcFlt32=5,     /* 32-bit float */
       HRcFlt64=6,     /* 64-bit float */
-      HRcVec64=7,     /* 64-bit SIMD */
-      HRcVec128=8     /* 128-bit SIMD */
+      HRcFlt128=7,    /* 128-bit float */
+      HRcVec64=8,     /* 64-bit SIMD */
+      HRcVec128=9     /* 128-bit SIMD */
    }
    HRegClass;
 

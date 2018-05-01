@@ -75,9 +75,17 @@ typedef
                         'continueAt'
          Dis_ResteerC:  (speculatively, of course) followed a
                         conditional branch; continue at 'continueAt'
+         Dis_BackUp:    found an unrecognized instruction. Terminate the
+                        block at the previous instruction.
       */
-      enum { Dis_StopHere, Dis_Continue, 
-             Dis_ResteerU, Dis_ResteerC } whatNext;
+      enum { Dis_StopHere=0x10, Dis_Continue,
+             Dis_ResteerU, Dis_ResteerC, Dis_BackUp } whatNext;
+
+      /* Any other hints that we should feed back to the disassembler?
+         Dis_HintNone:     no hint
+         Dis_HintVerbose:  this insn potentially generates a lot of code
+      */
+     enum { Dis_HintNone=0x20, Dis_HintVerbose } hint;
 
       /* For Dis_StopHere, we need to end the block and create a
          transfer to whatever the NIA is.  That will have presumably

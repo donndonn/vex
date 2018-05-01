@@ -217,6 +217,10 @@ typedef  unsigned long HWord;
 #   define VEX_HOST_WORDSIZE 8
 #   define VEX_REGPARM(_n) /* */
 
+#elif defined(__sparc__)
+#   define VEX_HOST_WORDSIZE 8
+#   define VEX_REGPARM(_n) /* */
+
 #else
 #   error "Vex: Fatal: Can't establish the host architecture"
 #endif

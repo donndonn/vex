@@ -46,6 +46,7 @@
 #include "libvex_guest_mips32.h"
 #include "libvex_guest_mips64.h"
 #include "libvex_guest_tilegx.h"
+#include "libvex_guest_sparc64.h"
 
 #include "main_globals.h"
 #include "main_util.h"
@@ -60,6 +61,7 @@
 #include "host_s390_defs.h"
 #include "host_mips_defs.h"
 #include "host_tilegx_defs.h"
+#include "host_sparc64_defs.h"
 
 #include "guest_generic_bb_to_IR.h"
 #include "guest_x86_defs.h"
@@ -70,6 +72,7 @@
 #include "guest_s390_defs.h"
 #include "guest_mips_defs.h"
 #include "guest_tilegx_defs.h"
+#include "guest_sparc64_defs.h"
 
 #include "host_generic_simd128.h"
 
@@ -166,6 +169,13 @@
 #define TILEGXST(f) vassert(0)
 #endif
 
+#if defined(VGA_sparc64) || defined(VEXMULTIARCH)
+#define SPARC64FN(f) f
+#define SPARC64ST(f) f
+#else
+#define SPARC64FN(f) NULL
+#define SPARC64ST(f) vassert(0)
+#endif
 
 /* This file contains the top level interface to the library. */
 
@@ -229,6 +239,18 @@ void LibVEX_Init (
    vassert(log_bytes);
    vassert(debuglevel >= 0);
 
+   vassert(vcon->iropt_verbosity >= 0);
+   vassert(vcon->iropt_level >= 0);
+   vassert(vcon->iropt_level <= 2);
+   vassert(vcon->iropt_unroll_thresh >= 0);
+   vassert(vcon->iropt_unroll_thresh <= 400);
+   vassert(vcon->guest_max_insns >= 1);
+   vassert(vcon->guest_max_insns <= 100);
+   vassert(vcon->guest_chase_thresh >= 0);
+   vassert(vcon->guest_chase_thresh < vcon->guest_max_insns);
+   vassert(vcon->guest_chase_cond == True
+           || vcon->guest_chase_cond == False);
+
    /* Check that Vex has been built with sizes of basic types as
       stated in priv/libvex_basictypes.h.  Failure of any of these is
       a serious configuration error and should be corrected
@@ -255,6 +277,7 @@ void LibVEX_Init (
    vassert(sizeof(void*) == 4 || sizeof(void*) == 8);
    vassert(sizeof(void*) == sizeof(int*));
    vassert(sizeof(void*) == sizeof(HWord));
+   vassert(sizeof(void*) == sizeof(Addr));
    vassert(sizeof(unsigned long) == sizeof(SizeT));
 
    vassert(VEX_HOST_WORDSIZE == sizeof(void*));
@@ -546,6 +569,23 @@ IRSB *LibVEX_Lift (  VexTranslateArgs *vta,
          vassert(sizeof( ((VexGuestTILEGXState*)0)->guest_CMSTART    ) == 8);
          vassert(sizeof( ((VexGuestTILEGXState*)0)->guest_CMLEN      ) == 8);
          vassert(sizeof( ((VexGuestTILEGXState*)0)->guest_NRADDR     ) == 8);
+         break;
+
+      case VexArchSPARC64:
+         preciseMemExnsFn
+            = SPARC64FN(guest_sparc64_state_requires_precise_mem_exns);
+         disInstrFn             = SPARC64FN(disInstr_SPARC64);
+         specHelper             = SPARC64FN(guest_sparc64_spechelper);
+         guest_layout           = SPARC64FN(&sparc64Guest_layout);
+         offB_CMSTART           = offsetof(VexGuestSPARC64State, guest_CMSTART);
+         offB_CMLEN             = offsetof(VexGuestSPARC64State, guest_CMLEN);
+	 offB_GUEST_IP          = offsetof(VexGuestSPARC64State, guest_PC);
+         szB_GUEST_IP           = sizeof(((VexGuestSPARC64State *) 0)->guest_PC);
+         vassert(vta->archinfo_guest.endness == VexEndnessBE);
+         vassert(sizeof(VexGuestSPARC64State) % LibVEX_GUEST_STATE_ALIGN == 0);
+         vassert(sizeof(((VexGuestSPARC64State *) 0)->guest_CMSTART) == 8);
+         vassert(sizeof(((VexGuestSPARC64State *) 0)->guest_CMLEN) == 8);
+         vassert(sizeof(((VexGuestSPARC64State *) 0)->guest_NRADDR) == 8);
          break;
 
       default:
@@ -878,6 +918,13 @@ void LibVEX_Codegen (   VexTranslateArgs *vta,
          offB_HOST_EvC_COUNTER  = offsetof(VexGuestTILEGXState,host_EvC_COUNTER);
          offB_HOST_EvC_FAILADDR = offsetof(VexGuestTILEGXState,host_EvC_FAILADDR);
          break;
+      case VexArchSPARC64:
+         preciseMemExnsFn =
+            SPARC64FN(guest_sparc64_state_requires_precise_mem_exns);
+         guest_sizeB            = sizeof(VexGuestSPARC64State);
+         offB_HOST_EvC_COUNTER  = offsetof(VexGuestSPARC64State, host_EvC_COUNTER);
+         offB_HOST_EvC_FAILADDR = offsetof(VexGuestSPARC64State, host_EvC_FAILADDR);
+         break;
 
       default:
          vpanic("LibVEX_Codegen: unsupported guest insn set");
@@ -1051,6 +1098,22 @@ void LibVEX_Codegen (   VexTranslateArgs *vta,
          iselSB      = TILEGXFN(iselSB_TILEGX);
          emit        = CAST_AS(emit) TILEGXFN(emit_TILEGXInstr);
          vassert(vta->archinfo_host.endness == VexEndnessLE);
+         break;
+
+      case VexArchSPARC64:
+         mode64       = True;
+         rRegUniv     = SPARC64FN(getRRegUniverse_SPARC64());
+         isMove	      = CAST_AS(isMove) SPARC64FN(isMove_SPARC64Instr);
+         getRegUsage
+            = CAST_AS(getRegUsage) SPARC64FN(getRegUsage_SPARC64Instr);
+         mapRegs      = CAST_AS(mapRegs) SPARC64FN(mapRegs_SPARC64Instr);
+         genSpill     = CAST_AS(genSpill) SPARC64FN(genSpill_SPARC64);
+         genReload    = CAST_AS(genReload) SPARC64FN(genReload_SPARC64);
+         ppInstr      = CAST_AS(ppInstr) SPARC64FN(ppSPARC64Instr);
+         ppReg        = CAST_AS(ppReg) SPARC64FN(ppHRegSPARC64);
+         iselSB       = SPARC64FN(iselSB_SPARC64);
+         emit         = CAST_AS(emit) SPARC64FN(emit_SPARC64Instr);
+         vassert(vta->archinfo_host.endness == VexEndnessBE);
          break;
 
       default:
@@ -1276,6 +1339,12 @@ VexInvalRange LibVEX_Chain ( VexArch     arch_host,
                                              place_to_chain,
                                              disp_cp_chain_me_EXPECTED,
                                              place_to_jump_to, True/*!mode64*/));
+       case VexArchSPARC64:
+         SPARC64ST(return chainXDirect_SPARC64(endness_host,
+                                               place_to_chain,
+                                               disp_cp_chain_me_EXPECTED,
+                                               place_to_jump_to));
+
       default:
          vassert(0);
    }
@@ -1339,6 +1408,11 @@ VexInvalRange LibVEX_UnChain ( VexArch     arch_host,
                                       place_to_unchain,
                                       place_to_jump_to_EXPECTED,
                                                disp_cp_chain_me, True/*!mode64*/));
+      case VexArchSPARC64:
+         SPARC64ST(return unchainXDirect_SPARC64(endness_host,
+                                                 place_to_unchain,
+                                                 place_to_jump_to_EXPECTED,
+                                                 disp_cp_chain_me));
 
       default:
          vassert(0);
@@ -1370,6 +1444,8 @@ Int LibVEX_evCheckSzB ( VexArch    arch_host )
             MIPS64ST(cached = evCheckSzB_MIPS()); break;
          case VexArchTILEGX:
             TILEGXST(cached = evCheckSzB_TILEGX()); break;
+         case VexArchSPARC64:
+            SPARC64ST(cached = evCheckSzB_SPARC64()); break;
          default:
             vassert(0);
       }
@@ -1414,6 +1490,10 @@ VexInvalRange LibVEX_PatchProfInc ( VexArch    arch_host,
          TILEGXST(return patchProfInc_TILEGX(endness_host, place_to_patch,
                                              location_of_counter,
                                              True/*!mode64*/));
+
+      case VexArchSPARC64:
+         SPARC64ST(return patchProfInc_SPARC64(endness_host, place_to_patch,
+                                               location_of_counter));
       default:
          vassert(0);
    }
@@ -1473,7 +1553,16 @@ const HChar* LibVEX_EmNote_string ( VexEmNote ew )
      case EmFail_S390X_invalid_PFPO_function:
         return "The function code in GPR 0 for the PFPO instruction"
                " is invalid";
-     default: 
+     case EmWarn_SPARC64_fp_exns:
+        return "Unmasking floating-point exceptions (FSR.tem)";
+     case EmWarn_SPARC64_fp_ns:
+        return "Setting non-standard floating-point mode (FSR.ns)";
+     case EmWarn_SPARC64_handling_unrecognized_insn:
+        return "Unrecognized instruction encountered.\n"
+               "  This may cause false positive or negative messages to be "
+               "emitted.\n  Please file a bug to have the instruction properly "
+               "implemented.\n";
+     default:
         vpanic("LibVEX_EmNote_string: unknown warning");
    }
 }
@@ -1494,6 +1583,7 @@ const HChar* LibVEX_ppVexArch ( VexArch arch )
       case VexArchMIPS32:   return "MIPS32";
       case VexArchMIPS64:   return "MIPS64";
       case VexArchTILEGX:   return "TILEGX";
+      case VexArchSPARC64:  return "SPARC64";
       default:              return "VexArch???";
    }
 }
@@ -1561,6 +1651,7 @@ static IRType arch_word_size (VexArch arch) {
       case VexArchPPC64:
       case VexArchS390X:
       case VexArchTILEGX:
+      case VexArchSPARC64:
          return Ity_I64;
 
       default:
@@ -1862,6 +1953,30 @@ static const HChar* show_hwcaps_tilegx ( UInt hwcaps )
    return "tilegx-baseline";
 }
 
+static const HChar* show_hwcaps_sparc64 ( UInt hwcaps )
+{
+   switch (hwcaps) {
+   case VEX_HWCAPS_SPARC64_BASE:
+      return "sparc64-baseline";
+   case VEX_HWCAPS_SPARC64_VIS2:
+      return "sparc64 VIS 2";
+   case VEX_HWCAPS_SPARC64_FMAF:
+      return "sparc64 VIS 2 + FMAf";
+   case VEX_HWCAPS_SPARC64_VIS3:
+      return "sparc64 VIS 3";
+   case VEX_HWCAPS_SPARC64_IMA:
+      return "sparc64 IMA";
+   case VEX_HWCAPS_SPARC64_SPARC4:
+      return "sparc64 SPARC4";
+   case VEX_HWCAPS_SPARC64_SPARC5:
+      return "sparc64 SPARC5";
+   case VEX_HWCAPS_SPARC64_SPARC6:
+      return "sparc64 SPARC6";
+   default:
+      return "Unsupported";
+   }
+}
+
 #undef NUM_HWCAPS
 
 /* Thie function must not return NULL. */
@@ -1879,6 +1994,7 @@ static const HChar* show_hwcaps ( VexArch arch, UInt hwcaps )
       case VexArchMIPS32: return show_hwcaps_mips32(hwcaps);
       case VexArchMIPS64: return show_hwcaps_mips64(hwcaps);
       case VexArchTILEGX: return show_hwcaps_tilegx(hwcaps);
+      case VexArchSPARC64: return show_hwcaps_sparc64(hwcaps);
       default: return NULL;
    }
 }
@@ -2104,6 +2220,22 @@ static void check_hwcaps ( VexArch arch, UInt hwcaps )
 
       case VexArchTILEGX:
          return;
+
+      case VexArchSPARC64:
+         switch (hwcaps) {
+         case VEX_HWCAPS_SPARC64_BASE:
+         case VEX_HWCAPS_SPARC64_VIS2:
+         case VEX_HWCAPS_SPARC64_FMAF:
+         case VEX_HWCAPS_SPARC64_VIS3:
+         case VEX_HWCAPS_SPARC64_IMA:
+         case VEX_HWCAPS_SPARC64_SPARC4:
+         case VEX_HWCAPS_SPARC64_SPARC5:
+         case VEX_HWCAPS_SPARC64_SPARC6:
+            return;
+         default:
+            invalid_hwcaps(arch, hwcaps,
+                           "Unsupported hardware capabilities.\n");
+         }
 
       default:
          vpanic("unknown architecture");

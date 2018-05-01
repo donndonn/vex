@@ -452,6 +452,8 @@ typedef
       Iop_MullS8, Iop_MullS16, Iop_MullS32, Iop_MullS64,
       Iop_MullU8, Iop_MullU16, Iop_MullU32, Iop_MullU64,
 
+      Iop_MulHiU64, /* :: I64 x I64 -> I64 (high half) */
+
       /* Wierdo integer stuff */
       Iop_Clz64, Iop_Clz32,   /* count leading zeroes */
       Iop_Ctz64, Iop_Ctz32,   /* count trailing zeros */
@@ -492,6 +494,10 @@ typedef
       Iop_DivU32E,  // :: I32,I32 -> I32 (dividend is 32-bit arg (hi)
                     // concat with 32 0's (low))
       Iop_DivS32E,  // ditto, signed
+      Iop_DivU64to32, // :: I64,I32 -> I64 (resulting quotient is low 32 bits
+                      //                    or 0x00000000FFFFFFFF on overflow)
+      Iop_DivS64to32, // ditto, signed (0x000000007FFFFFFF or
+                      //                0xFFFFFFFF80000000 on overflow)
 
       Iop_DivModU64to32, // :: I64,I32 -> I64
                          // of which lo half is div and hi half is mod

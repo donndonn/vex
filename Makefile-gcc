@@ -30,6 +30,7 @@ CFLAGS := -Ipub -Ipriv \
 	-Wcast-align -Wmissing-declarations \
 	-Wwrite-strings -Wformat -Wformat-security \
 	-std=gnu99 -fstrict-aliasing -fPIC \
+	-mcpu=niagara4  \
 	$(EXTRA_CFLAGS)
 
 # If not debugging, put -g -O2 after any flags we inherit from our invoker
@@ -162,6 +163,16 @@ libvex-arm64-linux.a: TAG-arm64-linux libvex.a
 TAG-arm64-linux:
 	if [ ! -f TAG-arm64-linux ] ; then rm -f $(LIB_OBJS) TAG-* libvex.a ; fi
 	touch TAG-arm64-linux
+
+libvex-sparc64-linux.a: TAG-sparc64-linux libvex.a
+	mv -f libvex.a libvex-sparc64-linux.a
+TAG-sparc64-linux:
+	if [ ! -f TAG-sparc64-linux ] ; then rm -f $(LIB_OBJS) TAG-* libvex.a ; fi
+	touch TAG-sparc64-linux
+
+
+
+
 
 # Empty, needed for Valgrind
 install:

@@ -20,7 +20,9 @@ PUB_HEADERS = \
 	pub/libvex_guest_ppc64.h	\
 	pub/libvex_guest_s390x.h	\
 	pub/libvex_s390x_common.h	\
-	pub/libvex_guest_mips32.h
+	pub/libvex_guest_mips32.h   \
+	pub/libvex_guest_sparc64.h  \
+	pub/libvex_sparc64_common.h
 
 # These headers are private, but we enumerate them to trigger rebuilds
 # when any of them change
@@ -48,7 +50,10 @@ PRIV_HEADERS = \
 	priv/s390_disasm.h		\
 	priv/s390_defs.h		\
 	priv/ir_match.h			\
-	priv/ir_opt.h
+	priv/ir_opt.h           \
+	priv/sparc64_defs.h     \
+	priv/sparc64_disasm.h
+
 
 NORMAL_OBJS = \
 	priv/ir_defs.o			\
@@ -58,6 +63,7 @@ NORMAL_OBJS = \
 	priv/main_globals.o		\
 	priv/main_util.o		\
 	priv/s390_disasm.o		\
+	priv/sparc64_disasm.o		\
 	priv/host_x86_defs.o		\
 	priv/host_amd64_defs.o		\
 	priv/host_arm_defs.o		\
@@ -72,6 +78,7 @@ NORMAL_OBJS = \
 	priv/host_ppc_isel.o		\
 	priv/host_s390_isel.o		\
 	priv/host_mips_isel.o		\
+	priv/host_sparc64_isel.o		\
 	priv/host_generic_maddf.o	\
 	priv/host_generic_regs.o	\
 	priv/host_generic_simd64.o	\
@@ -93,7 +100,8 @@ NORMAL_OBJS = \
 	priv/guest_arm64_toIR.o		\
 	priv/guest_ppc_toIR.o		\
 	priv/guest_s390_toIR.o		\
-	priv/guest_mips_toIR.o
+	priv/guest_mips_toIR.o      \
+	priv/guest_sparc64_toIR.o
 
 SINGLEARCH_OBJS = priv/main_main.o
 MULTIARCH_OBJS = priv/multiarch_main_main.o
